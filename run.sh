@@ -1,5 +1,12 @@
 #!/bin/bash
 cargo b --release
+
+ext=$?
+echo $ext
+if [[ $ext -ne 0 ]]; then
+  exit $ext
+fi
+
 sudo setcap cap_net_admin=eip ./target/release/rust-tcp
 ./target/release/rust-tcp &
 pid=$!
