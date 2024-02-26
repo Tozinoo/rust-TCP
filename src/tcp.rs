@@ -140,11 +140,9 @@ impl Connection {
             ],
         )
         .expect("asdf");
+        // kernel is nice and does this for us
+        // syn_ack.checksum = syn_ack.calc_checksum_ipv4(&ip, &[]).expect("failed to compute checksum");
 
-        syn_ack.checksum = syn_ack.calc_checksum_ipv4(&ip, &[]).expect("failed to compute checksum");
-        eprintln!("got ip header : \n {:02x?} \n", iph);
-        eprintln!("got ip header 2 : \n {:02x?} \n", ip);
-        eprintln!("got tcp header : \n {:02x?}", tcph);
         // write out the headers
         let unwritten = {
             let mut unwritten = &mut buf[..];
@@ -152,8 +150,6 @@ impl Connection {
             syn_ack.write(&mut unwritten);
             unwritten.len()
         };
-
-        eprintln!("responding with {:02x?}", &buf[..buf.len() - unwritten]);
 
         nic.send(&buf[..unwritten])?;
         Ok(Some(c))
@@ -166,7 +162,7 @@ impl Connection {
         tcph: etherparse::TcpHeaderSlice<'a>,
         data: &'a [u8],
     ) -> io::Result<()> {
-        unimplemented!();
+        Ok(())
     }
 }
 // 0                   1                   2                   3
