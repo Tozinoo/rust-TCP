@@ -1,14 +1,14 @@
+use etherparse::ip_number::TCP;
 use std::collections::HashMap;
 use std::io;
 use std::net::Ipv4Addr;
-use etherparse::ip_number::TCP;
 
 mod tcp;
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
 struct Quad {
-    src : (Ipv4Addr, u16),
-    dst : (Ipv4Addr, u16),
+    src: (Ipv4Addr, u16),
+    dst: (Ipv4Addr, u16),
 }
 
 fn main() -> io::Result<()> {
@@ -41,32 +41,32 @@ fn main() -> io::Result<()> {
                         match connections.entry(Quad {
                             src: (src, tcph.source_port()),
                             dst: (dst, tcph.destination_port()),
-                        }){
+                        }) {
                             Entry::Occupied(mut c) => {
-                                c.get_mut().on_packet(&mut nic, iph, tcph, &buf[datai..nbytes])?;
-                            },
+                                c.get_mut()
+                                    .on_packet(&mut nic, iph, tcph, &buf[datai..nbytes])?;
+                            }
                             Entry::Vacant(mut e) => {
-                                if let Some(c) = tcp::Connection::accept(&mut nic, iph, tcph, &buf[datai..nbytes])? {
+                                if let Some(c) = tcp::Connection::accept(
+                                    &mut nic,
+                                    iph,
+                                    tcph,
+                                    &buf[datai..nbytes],
+                                )? {
                                     e.insert(c);
                                 }
-
                             }
                         }
-
-                    },
-                    Err(e) =>{
+                    }
+                    Err(e) => {
                         eprintln!("ignoring {:?}", e);
                     }
                 }
-
-
-            },
-            Err(e) =>{
-                eprintln!("ignoring weird packet {:?}", e);
             }
-
+            Err(e) => {
+                // eprintln!("ignoring weird packet {:?}", e);
+            }
         }
-
     }
     // Ok(())
 }

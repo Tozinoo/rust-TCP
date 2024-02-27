@@ -1,16 +1,16 @@
 use std::io;
 
 pub enum State {
-    Closed,
-    Listen,
+    // Listen,
     SynRcvd,
-    //  Estab,
+    Estab,
 }
 
 pub struct Connection {
     state: State,
     send: SendSequenceSpace,
     recv: RecvSequenceSpace,
+    ip: etherparse::Ipv4Header,
 }
 
 /**
@@ -86,26 +86,42 @@ impl Connection {
 
         let iss = 0;
         let mut c = Connection {
-            state : State::SynRcvd,
-            send : SendSequenceSpace {
-               iss,
-               una : iss,
-               nxt : iss + 1,
-               wnd : 10,
-                up : false,
+            state: State::SynRcvd,
+            send: SendSequenceSpace {
+                iss,
+                una: iss,
+                nxt: iss + 1,
+                wnd: 10,
+                up: false,
 
                 wl1: 0,
                 wl2: 0,
             },
-            recv : RecvSequenceSpace {
-                irs : tcph.sequence_number(),
-                nxt : tcph.sequence_number() + 1,
-                wnd : tcph.window_size(),
-                up : false,
-            }
+            recv: RecvSequenceSpace {
+                irs: tcph.sequence_number(),
+                nxt: tcph.sequence_number() + 1,
+                wnd: tcph.window_size(),
+                up: false,
+            },
+            ip: etherparse::Ipv4Header::new(
+                0,
+                64,
+                etherparse::IpNumber::TCP,
+                [
+                    iph.destination()[0],
+                    iph.destination()[1],
+                    iph.destination()[2],
+                    iph.destination()[3],
+                ],
+                [
+                    iph.source()[0],
+                    iph.source()[1],
+                    iph.source()[2],
+                    iph.source()[3],
+                ],
+            ).expect("??"),
         };
         // keep track of sender info
-
 
         // decide on stuff we're sending them
 
@@ -117,36 +133,17 @@ impl Connection {
             c.send.wnd,
         );
 
-
         syn_ack.acknowledgment_number = c.recv.nxt + 1;
         syn_ack.syn = true;
         syn_ack.syn = true;
-
-        let mut ip = etherparse::Ipv4Header::new(
-            syn_ack.header_len() as u16,
-            64,
-            etherparse::IpNumber::TCP,
-            [
-                iph.destination()[0],
-                iph.destination()[1],
-                iph.destination()[2],
-                iph.destination()[3],
-            ],
-            [
-                iph.source()[0],
-                iph.source()[1],
-                iph.source()[2],
-                iph.source()[3],
-            ],
-        )
-        .expect("asdf");
+        c.ip.set_payload_len(syn_ack.header_len() as usize + 0);
         // kernel is nice and does this for us
         // syn_ack.checksum = syn_ack.calc_checksum_ipv4(&ip, &[]).expect("failed to compute checksum");
 
         // write out the headers
         let unwritten = {
             let mut unwritten = &mut buf[..];
-            ip.write(&mut unwritten);
+            c.ip.write(&mut unwritten);
             syn_ack.write(&mut unwritten);
             unwritten.len()
         };
@@ -162,6 +159,20 @@ impl Connection {
         tcph: etherparse::TcpHeaderSlice<'a>,
         data: &'a [u8],
     ) -> io::Result<()> {
+        // acceptable ack check
+        // SND.UNA < SEG.ACK =< SND.NXT
+        if !(self.send.una < tcph.acknowledgment_number() &&  tcph.acknowledgment_number() <= self.send.nxt) {
+            return Ok(());
+        }
+
+        match self.state {
+            State::SynRcvd => {
+                // expect to get an ACK for our SYN
+            },
+            State::Estab => {
+                unimplemented!()
+            }
+        }
         Ok(())
     }
 }
